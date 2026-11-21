@@ -2,7 +2,7 @@
  * Mesh = each player keeps (n-1) peer connections; for audio-only Opus that is light enough for 8 players.
  * Rule that avoids offer "glare": for every pair, the player with the smaller public id creates the offer. */
 const Voice = (() => {
-  let hooks = { send() {}, onSpeak() {}, onChange() {}, myPub: () => null };
+  let hooks = { send() {}, onSpeak() {}, onChange() {}, onBlocked() {}, myPub: () => null };
   let local = null, muted = false, ice = null, ac = null, vol = 1, loop = null, lastPlayers = [];
   const peers = new Map();        // pub -> {pc, audio, an, init, retries, q:[]}
   const mutedPeers = new Set();   // peers *I* muted (local only)
@@ -77,7 +77,9 @@ const Voice = (() => {
 
   function startLoop() {
     if (loop) return;
+    let tick = 0;
     loop = setInterval(() => {
+      if (++tick % 20 === 0) { let paused = false; peers.forEach(p => { if (p.audio && p.audio.paused) paused = true; }); if (paused) hooks.onBlocked(true); }
       const now = Date.now(), cur = new Set();
       const me = hooks.myPub();
       if (local && !muted && me && level(localAn) > 0.02) hold.set(me, now);
@@ -98,7 +100,7 @@ const Voice = (() => {
     local = null; muted = false;
     if (localAn) { try { localAn.src.disconnect(); } catch (e) {} localAn = null; }
     if (loop) { clearInterval(loop); loop = null; }
-    hold.clear(); speaking.clear(); hooks.onSpeak(speaking);
+    hold.clear(); speaking.clear(); hooks.onSpeak(speaking); hooks.onBlocked(false);
     hooks.send({ type: 'voice', on: false, muted: false });
     hooks.onChange(fromTrackEnd ? 'ended' : undefined);
   }
@@ -143,7 +145,7 @@ const Voice = (() => {
         a.srcObject = stream; a.volume = vol; a.muted = mutedPeers.has(pub);
         box().appendChild(a);
         p.audio = a;
-        const pr = a.play(); if (pr && pr.catch) pr.catch(() => {}); // retried on next tap if the browser blocks it
+        const pr = a.play(); if (pr && pr.catch) pr.catch(() => hooks.onBlocked(true)); // browser blocked autoplay: ask the user to tap
         p.an = analyser(stream);
       }
     };
@@ -222,7 +224,13 @@ const Voice = (() => {
 
   function setVolume(v) { vol = v; peers.forEach(p => { if (p.audio) p.audio.volume = v; }); }
   function mutePeer(pub, m) { m ? mutedPeers.add(pub) : mutedPeers.delete(pub); const p = peers.get(pub); if (p && p.audio) p.audio.muted = m; if (m) hold.delete(pub); hooks.onChange(); }
-  function resumeAudio() { peers.forEach(p => { if (p.audio && p.audio.paused) p.audio.play().catch(() => {}); }); if (ac && ac.state === 'suspended') ac.resume(); }
+  function resumeAudio() {
+    let blocked = false; const jobs = [];
+    peers.forEach(p => { if (p.audio && p.audio.paused) { const r = p.audio.play(); if (r && r.catch) jobs.push(r.catch(() => { blocked = true; })); } });
+    if (ac && ac.state === 'suspended') ac.resume();
+    if (jobs.length) Promise.all(jobs).then(() => hooks.onBlocked(blocked));
+    else if (!blocked) hooks.onBlocked(false);
+  }
 
   return {
     init, start, stop, destroy, setMuted, sync, handle, resetPeers, setVolume, mutePeer, resumeAudio,

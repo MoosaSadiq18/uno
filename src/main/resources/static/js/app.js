@@ -476,6 +476,7 @@ $('#cin').addEventListener('submit', e => { e.preventDefault(); const i = $('#ci
 Voice.init({
   send, myPub: () => me && me.pub,
   onSpeak: () => applySpeaking(),
+  onBlocked: v => { $('#audioBanner').hidden = !v; },
   onChange: why => { if (why === 'ended') toast('Microphone disconnected'); rerender(); syncSettings(); },
 });
 function applySpeaking() { $$('[data-pub]').forEach(el => { const av = el.classList.contains('av') ? el : el.querySelector('.av'); if (av) av.classList.toggle('speaking', Voice.isSpeaking(el.dataset.pub)); }); }
@@ -486,6 +487,7 @@ async function micOn() {
   catch (e) { const m = (e && e.message) || 'Could not start the microphone.'; setMicErr(m); toast(m); if (!$('#settings').hidden) return; if (e && e.code === 'denied') openModal('settings'); }
 }
 function micToggleQuick() { if (!Voice.on) micOn(); else { Voice.setMuted(!Voice.muted); toast(Voice.muted ? 'Microphone muted' : 'Microphone unmuted'); } }
+$('#audioBanner').onclick = () => { unlockAudio(); Voice.resumeAudio(); };
 $('#tbMic').onclick = micToggleQuick;
 $('#sMic').onclick = () => { if (Voice.on) { Voice.stop(); toast('Microphone off'); } else micOn(); };
 $('#sMute').onclick = () => Voice.setMuted(!Voice.muted);
