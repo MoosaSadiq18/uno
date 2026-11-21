@@ -477,6 +477,7 @@ Voice.init({
   send, myPub: () => me && me.pub,
   onSpeak: () => applySpeaking(),
   onBlocked: v => { $('#audioBanner').hidden = !v; },
+  onPeerFailed: pub => { const p = S && S.players.find(x => x.pub === pub); toast(`Couldn't connect voice to ${p ? p.name : 'a player'} - a restrictive network may be blocking it`); },
   onChange: why => { if (why === 'ended') toast('Microphone disconnected'); rerender(); syncSettings(); },
 });
 function applySpeaking() { $$('[data-pub]').forEach(el => { const av = el.classList.contains('av') ? el : el.querySelector('.av'); if (av) av.classList.toggle('speaking', Voice.isSpeaking(el.dataset.pub)); }); }

@@ -2,7 +2,7 @@
  * Mesh = each player keeps (n-1) peer connections; for audio-only Opus that is light enough for 8 players.
  * Rule that avoids offer "glare": for every pair, the player with the smaller public id creates the offer. */
 const Voice = (() => {
-  let hooks = { send() {}, onSpeak() {}, onChange() {}, onBlocked() {}, myPub: () => null };
+  let hooks = { send() {}, onSpeak() {}, onChange() {}, onBlocked() {}, onPeerFailed() {}, myPub: () => null };
   let local = null, muted = false, ice = null, ac = null, vol = 1, loop = null, lastPlayers = [];
   const peers = new Map();        // pub -> {pc, audio, an, init, retries, q:[]}
   const mutedPeers = new Set();   // peers *I* muted (local only)
@@ -172,7 +172,7 @@ const Voice = (() => {
     if (peers.get(pub) !== p) return;
     const tries = p.retries + 1;
     closePeer(pub);
-    if (tries > 4) return;
+    if (tries > 4) { hooks.onPeerFailed(pub); return; }
     setTimeout(() => { if (local) { sync(lastPlayers); const n = peers.get(pub); if (n) n.retries = tries; } }, 1500 * tries);
   }
 
