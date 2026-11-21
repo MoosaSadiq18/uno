@@ -1,0 +1,27 @@
+# Maven build output
+target/
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Node (only needed if you run the browser tests locally)
+node_modules/
+package-lock.json
+
+# Secrets - never commit these
+.env
+*.pem
+*.key
+gha_key
